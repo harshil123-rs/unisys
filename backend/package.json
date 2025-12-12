@@ -1,0 +1,24 @@
+{
+  "name": "logiassist-backend",
+  "version": "0.1.0",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.25.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.6.7",
+    "openai": "^4.9.0",
+    "pdf-parse": "^1.1.1",
+    "twilio": "^4.8.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}
