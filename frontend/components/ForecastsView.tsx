@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 
 // --- Mock Data ---
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 
 // ...
 

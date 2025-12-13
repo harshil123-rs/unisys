@@ -46,6 +46,66 @@ function MapController({ selectedShipment, focusedLocation }: { selectedShipment
     return null;
 }
 
+// ... (previous imports)
+
+// Moving Marker Component for Simulation
+function MovingMarker({ route, icon, onSelect }: { route: [number, number][], icon: any, onSelect: () => void }) {
+    const [position, setPosition] = React.useState(route[0]);
+    const [index, setIndex] = React.useState(0);
+
+    React.useEffect(() => {
+        if (!route || route.length < 2) return;
+
+        let animationFrameId: number;
+        let startTime: number;
+        const duration = 10000; // 10 seconds for full route traversal (demo speed)
+
+        // Calculate total distance to normalize speed (optional, but simple duration is fine for demo)
+
+        const animate = (time: number) => {
+            if (!startTime) startTime = time;
+            const elapsed = time - startTime;
+            const progress = (elapsed % duration) / duration; // Loop animation
+
+            // Calculate current position based on progress
+            const totalPoints = route.length - 1;
+            const currentStep = Math.floor(progress * totalPoints);
+            const nextStep = (currentStep + 1) % route.length;
+
+            const p1 = route[currentStep];
+            const p2 = route[nextStep];
+
+            // Interpolate between p1 and p2
+            const stepProgress = (progress * totalPoints) - currentStep;
+            const lat = p1[0] + (p2[0] - p1[0]) * stepProgress;
+            const lng = p1[1] + (p2[1] - p1[1]) * stepProgress;
+
+            setPosition([lat, lng]);
+            animationFrameId = requestAnimationFrame(animate);
+        };
+
+        animationFrameId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animationFrameId);
+    }, [route]);
+
+    return (
+        <Marker
+            position={position}
+            icon={icon}
+            eventHandlers={{ click: onSelect }}
+            zIndexOffset={1000} // Keep on top
+        >
+            <Popup className="custom-popup">
+                <div className="text-black">
+                    <strong>Live Tracking</strong><br />
+                    Vehicle in motion<br />
+                    <span className="text-green-600 font-bold">On Time</span>
+                </div>
+            </Popup>
+        </Marker>
+    );
+}
+
 export default function MapComponent({ shipments, selectedShipment, onSelectShipment, layers, focusedLocation }: any) {
     return (
         <MapContainer
@@ -61,34 +121,49 @@ export default function MapComponent({ shipments, selectedShipment, onSelectShip
 
             <MapController selectedShipment={selectedShipment} focusedLocation={focusedLocation} />
 
-            {/* Shipments */}
-            {shipments.map((shipment: any) => (
-                <Marker
-                    key={shipment.id}
-                    position={shipment.position}
-                    icon={icons[shipment.statusColor as keyof typeof icons] || icons.blue}
-                    eventHandlers={{
-                        click: () => onSelectShipment(shipment),
-                    }}
-                >
-                    <Popup className="custom-popup">
-                        <div className="text-black">
-                            <strong>{shipment.id}</strong><br />
-                            {shipment.carrier}<br />
-                            Status: {shipment.status}
-                        </div>
-                    </Popup>
-                </Marker>
-            ))}
+            {/* Static Shipments (Hide the selected one if it has a route, as we show the moving one) */}
+            {shipments.map((shipment: any) => {
+                // If this is the selected shipment and it has a route, don't show the static marker
+                if (selectedShipment && selectedShipment.id === shipment.id && shipment.route && shipment.route.length > 0) {
+                    return null;
+                }
 
-            {/* Selected Shipment Route */}
-            {selectedShipment && selectedShipment.route && (
-                <Polyline
-                    positions={selectedShipment.route}
-                    color={selectedShipment.statusColor === 'red' ? '#ef4444' : '#3b82f6'}
-                    weight={4}
-                    dashArray={selectedShipment.statusColor === 'red' ? '10, 10' : undefined}
-                />
+                return (
+                    <Marker
+                        key={shipment.id}
+                        position={shipment.position}
+                        icon={icons[shipment.statusColor as keyof typeof icons] || icons.blue}
+                        eventHandlers={{
+                            click: () => onSelectShipment(shipment),
+                        }}
+                    >
+                        <Popup className="custom-popup">
+                            <div className="text-black">
+                                <strong>{shipment.id}</strong><br />
+                                {shipment.carrier}<br />
+                                Status: {shipment.status}
+                            </div>
+                        </Popup>
+                    </Marker>
+                );
+            })}
+
+            {/* Selected Shipment Route & Moving Marker */}
+            {selectedShipment && selectedShipment.route && selectedShipment.route.length > 0 && (
+                <>
+                    <Polyline
+                        positions={selectedShipment.route}
+                        color={selectedShipment.statusColor === 'red' ? '#ef4444' : '#3b82f6'}
+                        weight={4}
+                        dashArray={selectedShipment.statusColor === 'red' ? '10, 10' : undefined}
+                        opacity={0.6}
+                    />
+                    <MovingMarker
+                        route={selectedShipment.route}
+                        icon={icons[selectedShipment.statusColor as keyof typeof icons] || icons.blue}
+                        onSelect={() => { }}
+                    />
+                </>
             )}
 
             {/* AI Predicted Delay Zones (Heatmap Simulation) */}

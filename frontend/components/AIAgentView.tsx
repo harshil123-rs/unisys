@@ -14,7 +14,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { useLanguage } from '@/context/LanguageContext';
+
 export default function AIAgentView() {
+    const { language } = useLanguage();
     const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([
         { role: 'ai', content: 'Hello! I am LogiMind, your advanced logistics AI agent. I can analyze SOPs, track shipments, and answer complex queries. Upload a document or ask me anything!' }
     ]);
@@ -45,7 +48,7 @@ export default function AIAgentView() {
             const res = await fetch('http://localhost:8080/api/ask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: userMsg })
+                body: JSON.stringify({ query: userMsg, language }) // Pass language here
             });
             const data = await res.json();
             if (data.error) {
@@ -112,25 +115,80 @@ export default function AIAgentView() {
                     ))}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-white/10">
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        accept=".pdf,.txt,.md"
-                        onChange={handleFileUpload}
-                    />
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg transition-colors font-medium disabled:opacity-50"
-                    >
-                        {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
-                        {uploading ? 'Analyzing...' : 'Upload Document'}
-                    </button>
-                    <p className="text-xs text-gray-500 text-center mt-2">
-                        Supports PDF, TXT, MD (Max 10MB)
-                    </p>
+                <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                    {/* Document Upload */}
+                    <div>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept=".pdf,.txt,.md"
+                            onChange={handleFileUpload}
+                        />
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                            className="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg transition-colors font-medium disabled:opacity-50"
+                        >
+                            {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+                            {uploading ? 'Analyzing...' : 'Upload Document'}
+                        </button>
+                        <p className="text-xs text-gray-500 text-center mt-1">
+                            PDF, TXT, MD (Max 10MB)
+                        </p>
+                    </div>
+
+                    {/* CSV Smart Import */}
+                    <div>
+                        <input
+                            type="file"
+                            id="csvInput"
+                            className="hidden"
+                            accept=".csv"
+                            onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setUploading(true);
+                                const formData = new FormData();
+                                formData.append('file', file);
+
+                                try {
+                                    const { data: { session } } = await import('@/lib/supabase').then(m => m.supabase.auth.getSession());
+                                    if (session) formData.append('userId', session.user.id);
+
+                                    setMessages(prev => [...prev, { role: 'ai', content: `🔄 **Smart Import:** Analyzing ${file.name} to map columns and import data...` }]);
+
+                                    const res = await fetch('http://localhost:8080/api/bookings/smart-upload', {
+                                        method: 'POST',
+                                        body: formData
+                                    });
+                                    const data = await res.json();
+
+                                    if (res.ok) {
+                                        setMessages(prev => [...prev, { role: 'ai', content: `✅ **Success!** Imported ${data.count} shipments from ${file.name}. You can view them in the dashboard.` }]);
+                                    } else {
+                                        throw new Error(data.error);
+                                    }
+                                } catch (err: any) {
+                                    setMessages(prev => [...prev, { role: 'ai', content: `❌ **Import Failed:** ${err.message}` }]);
+                                } finally {
+                                    setUploading(false);
+                                    (document.getElementById('csvInput') as HTMLInputElement).value = '';
+                                }
+                            }}
+                        />
+                        <button
+                            onClick={() => document.getElementById('csvInput')?.click()}
+                            disabled={uploading}
+                            className="w-full flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 py-3 rounded-lg transition-colors font-medium disabled:opacity-50"
+                        >
+                            {uploading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
+                            Smart CSV Import
+                        </button>
+                        <p className="text-xs text-gray-500 text-center mt-1">
+                            AI Auto-Mapping
+                        </p>
+                    </div>
                 </div>
             </div>
 

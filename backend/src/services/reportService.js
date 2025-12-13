@@ -5,22 +5,19 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function generateReport() {
     try {
-        // Fetch Real Data from Supabase
-        const { data: shipments } = await supabase.from('shipments').select('*');
-        const { data: queries } = await supabase.from('queries').select('*').limit(50); // Fetch recent queries
+        // Fetch Real Data from Supabase in Parallel
+        const [shipmentsResult, queriesResult] = await Promise.all([
+            supabase.from('shipments').select('*'),
+            supabase.from('queries').select('*').limit(50)
+        ]);
+
+        const shipments = shipmentsResult.data;
+        const queries = queriesResult.data;
 
         // Construct Data Context
         const realContext = {
             shipments: shipments || [],
-            // Summarize queries if available, otherwise mock for now if table is empty
-            queries: queries && queries.length > 0 ? queries.map(q => q.query_text) : [
-                'Where is my shipment?', 'Delay prediction', 'Customs rules'
-            ],
-            // Keep SOPs mock for now as we don't have a structured SOP table yet, or we could count documents
-            sops: [
-                { title: 'General Compliance', checks: 120 },
-                { title: 'Hazardous Goods', checks: 45 }
-            ]
+            queries: queries || []
         };
 
         const context = JSON.stringify(realContext, null, 2);
@@ -30,6 +27,12 @@ async function generateReport() {
         
         DATA SNAPSHOT:
         ${context}
+
+        INSTRUCTIONS:
+        - Analyze the "shipments" array to identify delays, risks, and carrier performance.
+        - Analyze the "queries" array (if available) to identify common user questions. If empty, state "No recent queries".
+        - For "compliance", analyze the shipment data for potential issues (e.g. missing fields, delayed status, high risk scores) instead of relying on external SOP documents.
+        - Do NOT invent data. If data is missing, state "Insufficient data".
 
         OUTPUT FORMAT:
         Return a valid JSON object with the following structure (do not include markdown formatting like \`\`\`json):
@@ -44,14 +47,14 @@ async function generateReport() {
                 "insight": string
             },
             "compliance": {
-                "topSOP": string,
-                "missingDoc": string,
+                "topSOP": string, // Derive from common issues (e.g. "On-Time Delivery Protocol", "Documentation Check")
+                "missingDoc": string, // Derive from data gaps or state "None"
                 "recommendation": string
             },
             "queries": {
-                "topQuestions": ["q1", "q2", "q3"],
-                "timeSaved": string,
-                "languages": string
+                "topQuestions": ["q1", "q2", "q3"], // Extract from real queries
+                "timeSaved": string, // Estimate based on query count
+                "languages": string // Detect from query text
             },
             "risks": {
                 "highDelayZones": [{"zone": string, "risk": string}],

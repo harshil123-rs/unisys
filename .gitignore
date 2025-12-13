@@ -37,3 +37,14 @@ backend/uploads/*
 
 # Supabase / Database
 supabase/
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Nested Node Modules (Safety)
+backend/node_modules/
+frontend/node_modules/

@@ -75,5 +75,26 @@ app.post('/api/analyze-doc', upload.single('file'), async (req, res) => {
 // whatsapp webhook
 app.post('/api/whatsapp/webhook', express.urlencoded({ extended: true }), handleWhatsappWebhook);
 
+// Booking Routes
+const { createBooking, getPendingBookings, approveBooking, rejectBooking } = require('./routes/bookings');
+app.post('/api/bookings/book', createBooking);
+app.get('/api/bookings/pending', getPendingBookings);
+app.post('/api/bookings/approve', approveBooking);
+app.post('/api/bookings/reject', rejectBooking);
+
+// Bulk Upload
+const { uploadCsv } = require('./routes/bulkUpload');
+const { smartUpload } = require('./routes/smartUpload');
+app.post('/api/bookings/upload-csv', upload.single('file'), uploadCsv);
+app.post('/api/bookings/smart-upload', upload.single('file'), smartUpload);
+
+// Return/Cancel Request Routes
+const { createRequest, getPendingRequests, getUserRequests, approveRequest, rejectRequest } = require('./routes/requests');
+app.post('/api/requests/create', createRequest);
+app.get('/api/requests/pending', getPendingRequests);
+app.get('/api/requests/user/:userId', getUserRequests);
+app.post('/api/requests/approve', approveRequest);
+app.post('/api/requests/reject', rejectRequest);
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log('Server running on', PORT));

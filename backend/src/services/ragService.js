@@ -32,7 +32,17 @@ async function semanticSearch(query) {
 
 async function answerQuery(userId, query, language = 'en') {
   try {
-    const top = await semanticSearch(query);
+    // --- OPTIMIZED: Parallel Data Fetching ---
+    const idMatch = query.match(/\bTN\d+\b/i);
+    const keywords = ['delay', 'risk', 'route', 'lane', 'traffic', 'weather', 'where', 'status'];
+    const hasKeywords = keywords.some(k => query.toLowerCase().includes(k));
+
+    // Execute all data fetching concurrently
+    const [top, specificShipmentResult, generalShipmentsResult] = await Promise.all([
+      semanticSearch(query),
+      idMatch ? supabase.from('shipments').select('*').eq('id', idMatch[0].toUpperCase()).single() : Promise.resolve({ data: null }),
+      hasKeywords ? supabase.from('shipments').select('*').limit(20) : Promise.resolve({ data: [] })
+    ]);
 
     let context = '';
     if (top.length > 0) {
@@ -41,28 +51,18 @@ async function answerQuery(userId, query, language = 'en') {
       context = "No specific documents found. Answer based on general logistics knowledge.";
     }
 
-    // --- NEW: Fetch Real-time Shipment Data ---
     let shipmentContext = "";
 
-    // 1. Check for specific Shipment ID (e.g., TN88912)
-    const idMatch = query.match(/\bTN\d+\b/i);
-    if (idMatch) {
-      const { data: shipment } = await supabase.from('shipments').select('*').eq('id', idMatch[0].toUpperCase()).single();
-      if (shipment) {
-        shipmentContext += `\nSPECIFIC SHIPMENT DATA: ${JSON.stringify(shipment, null, 2)}\n`;
-      }
+    // 1. Process Specific Shipment Data
+    if (specificShipmentResult.data) {
+      shipmentContext += `\nSPECIFIC SHIPMENT DATA: ${JSON.stringify(specificShipmentResult.data, null, 2)}\n`;
     }
 
-    // 2. Check for general keywords (delay, route, lane, risk, where is) to provide broader context
-    const keywords = ['delay', 'risk', 'route', 'lane', 'traffic', 'weather', 'where', 'status'];
-    if (keywords.some(k => query.toLowerCase().includes(k))) {
-      // Fetch a batch of relevant shipments (e.g., active ones) to allow AI to answer "Delhi routes" etc.
-      const { data: shipments } = await supabase.from('shipments').select('*').limit(20);
-      if (shipments && shipments.length > 0) {
-        // Filter out the specific one if already added to avoid duplication (optional, but clean)
-        const others = shipments.filter(s => !idMatch || s.id !== idMatch[0].toUpperCase());
-        shipmentContext += `\nOTHER ACTIVE SHIPMENTS (Use this to answer questions about routes, delays, or specific cities): ${JSON.stringify(others, null, 2)}\n`;
-      }
+    // 2. Process General Shipment Data
+    if (generalShipmentsResult.data && generalShipmentsResult.data.length > 0) {
+      // Filter out the specific one if already added to avoid duplication
+      const others = generalShipmentsResult.data.filter(s => !idMatch || s.id !== idMatch[0].toUpperCase());
+      shipmentContext += `\nOTHER ACTIVE SHIPMENTS (Use this to answer questions about routes, delays, or specific cities): ${JSON.stringify(others, null, 2)}\n`;
     }
     // ------------------------------------------
 
@@ -81,6 +81,7 @@ async function answerQuery(userId, query, language = 'en') {
     - If the user asks about "Delhi routes" or "delays", analyze the "OTHER ACTIVE SHIPMENTS" JSON to find relevant entries (e.g. filter by location='Delhi' or status='Delayed').
     - If the context doesn't contain the answer, say "I couldn't find specific information in your documents or live database."
     - Keep the tone professional and concise.
+    - **IMPORTANT: Respond in the following language code: ${language}. If the language is 'kn' (Kannada), ensure the response is in Kannada script.**
     `;
 
     const completion = await openai.chat.completions.create({
