@@ -27,6 +27,7 @@ import AIAgentView from '@/components/AIAgentView';
 import BookingForm from '@/components/BookingForm';
 import UserTrackingView from '@/components/UserTrackingView';
 import ReturnCancelView from '@/components/ReturnCancelView';
+import ConnectView from '@/components/ConnectView';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { useLanguage } from '@/context/LanguageContext';
@@ -62,12 +63,10 @@ export default function UserDashboardPage() {
                 return <UserTrackingView userId={userId} />;
             case 'Return/Cancel':
                 return <ReturnCancelView userId={userId} />;
-            case 'Documents':
-                return <PlaceholderView title="Documents" />;
             case 'AI Help':
                 return <AIAgentView />;
             case 'Connect':
-                return <PlaceholderView title="Connect Support" />;
+                return <ConnectView />;
             case 'Profile':
                 return <ProfileView />;
             default:
@@ -96,7 +95,6 @@ export default function UserDashboardPage() {
                         { id: 'Book Shipment', icon: Package, label: t('nav.bookShipment') },
                         { id: 'Tracking', icon: MapPin, label: t('nav.tracking') },
                         { id: 'Return/Cancel', icon: RotateCcw, label: t('nav.returnCancel') },
-                        { id: 'Documents', icon: FileCheck, label: t('nav.documents') },
                         { id: 'AI Help', icon: Bot, label: t('nav.aiAgent') },
                         { id: 'Connect', icon: MessageSquare, label: t('nav.connect') },
                         { id: 'Profile', icon: User, label: t('nav.profile') },
