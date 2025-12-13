@@ -38,7 +38,12 @@ function MapController({ selectedShipment, focusedLocation }: { selectedShipment
     const map = useMap();
     useEffect(() => {
         if (selectedShipment) {
-            map.flyTo(selectedShipment.position, 10, { duration: 1.5 });
+            if (selectedShipment.route && selectedShipment.route.length > 0) {
+                const bounds = L.latLngBounds(selectedShipment.route);
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12, animate: true, duration: 1.5 });
+            } else {
+                map.flyTo(selectedShipment.position, 10, { duration: 1.5 });
+            }
         } else if (focusedLocation) {
             map.flyTo([focusedLocation.lat, focusedLocation.lng], 12, { duration: 1.5 });
         }
